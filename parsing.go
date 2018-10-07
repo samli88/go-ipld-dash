@@ -155,7 +155,7 @@ func DecodeTxTree(b []byte) (*TxTree, error) {
 	}, nil
 }
 
-// General layout of a transaction
+// General layout of a transaction, before DIP2 special transactions
 //
 // Bytes  | Name         | Data Type        | Description
 // -------|--------------|------------------|------------
@@ -165,6 +165,14 @@ func DecodeTxTree(b []byte) (*TxTree, error) {
 // Varies | tx_out count | compactSize uint | Number of outputs in this tx
 // Varies | tx_out       | txOut            | Transaction outputs.
 // 4      | lock_time    | uint32_t         | A time (Unix epoch time) or block number
+//
+// With DIP2 the layout changes from:
+//
+//   version | tx_in_count | tx_in | tx_out_count | tx_out | lock_time
+//
+// to:
+//
+//   version | type | tx_in_count | tx_in | tx_out_count | tx_out | lock_time | payload
 //
 func readTx(r *bufio.Reader) (*Tx, error) {
 	rawVersion, err := readFixedSlice(r, 4)
@@ -178,6 +186,8 @@ func readTx(r *bufio.Reader) (*Tx, error) {
 }
 
 func readTxDetails(r *bufio.Reader, version uint32) (*Tx, error) {
+	shortVersion := uint16(version & 0xffff)
+	txType := uint16(version >> 16)
 
 	inputs, err := readTxInputs(r)
 	if err != nil {
@@ -189,16 +199,27 @@ func readTxDetails(r *bufio.Reader, version uint32) (*Tx, error) {
 		return nil, err
 	}
 
+	var payload []byte
+	hasPayload := shortVersion >= 3 && txType != 0
+	if hasPayload {
+		payload, err = readSpecialTxPayload(r, SpecialTxType(txType))
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	lockTime, err := readTxLockTime(r)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Tx{
-		Version:  version,
+		Version:  shortVersion,
+		Type:     txType,
 		Inputs:   inputs,
 		Outputs:  outputs,
 		LockTime: lockTime,
+		Payload:  payload,
 	}, nil
 }
 

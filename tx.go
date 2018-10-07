@@ -14,10 +14,12 @@ import (
 )
 
 type Tx struct {
-	Version  uint32   `json:"version"`
+	Version  uint16   `json:"version"`
+	Type     uint16   `json:"type"`
 	Inputs   []*TxIn  `json:"inputs"`
 	Outputs  []*TxOut `json:"outputs"`
 	LockTime uint32   `json:"locktime"`
+	Payload  []byte   `json:"payload"`
 }
 
 func (t *Tx) Cid() cid.Cid {
@@ -38,7 +40,9 @@ func (t *Tx) Links() []*node.Link {
 func (t *Tx) RawData() []byte {
 	buf := new(bytes.Buffer)
 	i := make([]byte, 4)
-	binary.LittleEndian.PutUint32(i, t.Version)
+	binary.LittleEndian.PutUint16(i, t.Version)
+	buf.Write(i)
+	binary.LittleEndian.PutUint16(i, t.Type)
 	buf.Write(i)
 	writeVarInt(buf, uint64(len(t.Inputs)))
 	for _, inp := range t.Inputs {
@@ -66,6 +70,9 @@ func (t *Tx) Resolve(path []string) (interface{}, []string, error) {
 	switch path[0] {
 	case "version":
 		return t.Version, path[1:], nil
+	// TODO: figure how how Resolve is supposed to work
+	//case "type":
+	//	return t.Type, path[1:], nil
 	case "lockTime":
 		return t.LockTime, path[1:], nil
 	case "inputs":
