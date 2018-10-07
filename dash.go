@@ -1,4 +1,4 @@
-package ipldbtc
+package iplddash
 
 import (
 	"bytes"
@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	cid "github.com/ipfs/go-cid"
-	node "github.com/ipfs/go-ipld-format"
-	mh "github.com/multiformats/go-multihash"
+	cid "github.com/samli88/go-cid"
+	node "github.com/samli88/go-ipld-format"
+	mh "github.com/samli88/go-multihash"
 )
 
 type Block struct {
@@ -32,8 +32,8 @@ type Link struct {
 var _ node.Node = (*Block)(nil)
 
 func (b *Block) Cid() cid.Cid {
-	h, _ := mh.Sum(b.header(), mh.DBL_SHA2_256, -1)
-	return cid.NewCidV1(cid.BitcoinBlock, h)
+	h, _ := mh.Sum(b.header(), mh.X11, -1)
+	return cid.NewCidV1(cid.DashBlock, h)
 }
 
 func (b *Block) RawData() []byte {
@@ -56,7 +56,7 @@ func (b *Block) Links() []*node.Link {
 func (b *Block) Loggable() map[string]interface{} {
 	// TODO: more helpful info here
 	return map[string]interface{}{
-		"type": "bitcoin_block",
+		"type": "dash_block",
 	}
 }
 
@@ -103,6 +103,8 @@ func cidToHash(c cid.Cid) []byte {
 	return h[len(h)-32:]
 }
 
+// Note: this is used for transactions (not blocks) which use double-sha256,
+// not X11.
 func hashToCid(hv []byte, t uint64) cid.Cid {
 	h, _ := mh.Encode(hv, mh.DBL_SHA2_256)
 	return cid.NewCidV1(t, h)
@@ -140,21 +142,23 @@ func (b *Block) Stat() (*node.NodeStat, error) {
 }
 
 func (b *Block) String() string {
-	return fmt.Sprintf("[bitcoin block]")
+	return fmt.Sprintf("[dash block]")
 }
 
 func (b *Block) Tree(p string, depth int) []string {
-	// TODO: this isnt a correct implementation yet
+	// TODO: this isn't a correct implementation yet
 	return []string{"difficulty", "nonce", "version", "timestamp", "tx", "parent"}
 }
 
-func (b *Block) BTCSha() []byte {
-	blkmh, _ := mh.Sum(b.header(), mh.DBL_SHA2_256, -1)
+// Note: In Dash, hash of block header uses X11 hash algorithm, and only first
+// 256 bits of result.
+func (b *Block) hash() []byte {
+	blkmh, _ := mh.Sum(b.header(), mh.X11, 32)
 	return blkmh[2:]
 }
 
 func (b *Block) HexHash() string {
-	return hex.EncodeToString(revString(b.BTCSha()))
+	return hex.EncodeToString(revString(b.hash()))
 }
 
 func (b *Block) Copy() node.Node {

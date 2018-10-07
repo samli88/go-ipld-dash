@@ -1,12 +1,12 @@
-package ipldbtc
+package iplddash
 
 import (
 	"encoding/json"
 	"fmt"
 
-	cid "github.com/ipfs/go-cid"
-	node "github.com/ipfs/go-ipld-format"
-	mh "github.com/multiformats/go-multihash"
+	cid "github.com/samli88/go-cid"
+	node "github.com/samli88/go-ipld-format"
+	mh "github.com/samli88/go-multihash"
 )
 
 type TxTree struct {
@@ -14,13 +14,13 @@ type TxTree struct {
 	Right *node.Link
 }
 
-func (t *TxTree) BTCSha() []byte {
+func (t *TxTree) hash() []byte {
 	return cidToHash(t.Cid())
 }
 
 func (t *TxTree) Cid() cid.Cid {
 	h, _ := mh.Sum(t.RawData(), mh.DBL_SHA2_256, -1)
-	return cid.NewCidV1(cid.BitcoinTx, h)
+	return cid.NewCidV1(cid.DashTx, h)
 }
 
 func (t *TxTree) Links() []*node.Link {
@@ -40,7 +40,7 @@ func (t *TxTree) RawData() []byte {
 
 func (t *TxTree) Loggable() map[string]interface{} {
 	return map[string]interface{}{
-		"type": "bitcoin_tx_tree",
+		"type": "dash_tx_tree",
 	}
 }
 
@@ -91,7 +91,7 @@ func (t *TxTree) Stat() (*node.NodeStat, error) {
 }
 
 func (t *TxTree) String() string {
-	return fmt.Sprintf("[bitcoin transaction tree]")
+	return fmt.Sprintf("[dash transaction tree]")
 }
 
 func (t *TxTree) Tree(p string, depth int) []string {
