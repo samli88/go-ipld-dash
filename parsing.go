@@ -1,4 +1,4 @@
-package ipldbtc
+package iplddash
 
 import (
 	"bufio"
@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io"
 
-	cid "github.com/ipfs/go-cid"
-	node "github.com/ipfs/go-ipld-format"
-	mh "github.com/multiformats/go-multihash"
+	cid "github.com/samli88/go-cid"
+	node "github.com/samli88/go-ipld-format"
+	mh "github.com/samli88/go-multihash"
 )
 
 func DecodeBlockMessage(b []byte) ([]node.Node, error) {
@@ -99,15 +99,15 @@ func ReadBlock(r *bufio.Reader) (*Block, error) {
 		return nil, fmt.Errorf("failed to read prev_block: %s", err)
 	}
 
-	blkhash, _ := mh.Encode(prevBlock, mh.DBL_SHA2_256)
-	blk.Parent = cid.NewCidV1(cid.BitcoinBlock, blkhash)
+	blkhash, _ := mh.Encode(prevBlock, mh.X11)
+	blk.Parent = cid.NewCidV1(cid.DashBlock, blkhash)
 
 	merkleRoot, err := readFixedSlice(r, 32)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read merkle_root: %s", err)
 	}
 	txroothash, _ := mh.Encode(merkleRoot, mh.DBL_SHA2_256)
-	blk.MerkleRoot = cid.NewCidV1(cid.BitcoinTx, txroothash)
+	blk.MerkleRoot = cid.NewCidV1(cid.DashTx, txroothash)
 
 	timestamp, err := readFixedSlice(r, 4)
 	if err != nil {
@@ -155,7 +155,7 @@ func DecodeTxTree(b []byte) (*TxTree, error) {
 	}, nil
 }
 
-// General layout of a transaction, before Segwit
+// General layout of a transaction
 //
 // Bytes  | Name         | Data Type        | Description
 // -------|--------------|------------------|------------
@@ -166,12 +166,6 @@ func DecodeTxTree(b []byte) (*TxTree, error) {
 // Varies | tx_out       | txOut            | Transaction outputs.
 // 4      | lock_time    | uint32_t         | A time (Unix epoch time) or block number
 //
-// With segwit the layout changes from
-//
-//   version | tx_in_count | tx_in | tx_out_count | tx_out | lock_time
-//
-//   version | marker | flag | tx_in_count | tx_in | tx_out_count | tx_out | witness | lock_time
-//
 func readTx(r *bufio.Reader) (*Tx, error) {
 	rawVersion, err := readFixedSlice(r, 4)
 	if err != nil {
@@ -180,37 +174,10 @@ func readTx(r *bufio.Reader) (*Tx, error) {
 	// version
 	version := binary.LittleEndian.Uint32(rawVersion)
 
-	isSegwit, err := isSegwitTx(r)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check segwit: %s", err)
-	}
-
-	return readTxDetails(r, version, isSegwit)
+	return readTxDetails(r, version)
 }
 
-func isSegwitTx(r *bufio.Reader) (bool, error) {
-	// the next two bytes must be [0x00, 0x01] to indicate the new
-	// segwit format
-	header, err := r.Peek(2)
-	if err != nil {
-		return false, err
-	}
-
-	if header[0] == 0x00 && header[1] == 0x01 {
-		return true, nil
-	}
-
-	return false, nil
-}
-
-func readTxDetails(r *bufio.Reader, version uint32, isSegwit bool) (*Tx, error) {
-	if isSegwit {
-		// header & flag validation already happened before
-		_, err := r.Discard(2)
-		if err != nil {
-			return nil, err
-		}
-	}
+func readTxDetails(r *bufio.Reader, version uint32) (*Tx, error) {
 
 	inputs, err := readTxInputs(r)
 	if err != nil {
@@ -222,52 +189,17 @@ func readTxDetails(r *bufio.Reader, version uint32, isSegwit bool) (*Tx, error) 
 		return nil, err
 	}
 
-	var witnesses []*Witness
-	if isSegwit {
-		// witness
-		// implicit witness_count == tx_in_count
-		witnesses, err = readTxWitnesses(r, len(inputs))
-		if err != nil {
-			return nil, err
-		}
-	}
 	lockTime, err := readTxLockTime(r)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Tx{
-		Version:   version,
-		Inputs:    inputs,
-		Outputs:   outputs,
-		LockTime:  lockTime,
-		Witnesses: witnesses,
+		Version:  version,
+		Inputs:   inputs,
+		Outputs:  outputs,
+		LockTime: lockTime,
 	}, nil
-}
-
-func readTxWitnesses(r *bufio.Reader, ctr int) ([]*Witness, error) {
-	witnesses := make([]*Witness, ctr)
-
-	for i := 0; i < ctr; i++ {
-		witCtr, err := readVarint(r)
-		if err != nil {
-			return nil, err
-		}
-
-		items := make([][]byte, witCtr)
-		for j := 0; j < witCtr; j++ {
-			item, err := readVarSlice(r)
-			if err != nil {
-				return nil, err
-			}
-			items[j] = item
-		}
-		witnesses[i] = &Witness{
-			Data: items,
-		}
-	}
-
-	return witnesses, nil
 }
 
 func readTxInputs(r *bufio.Reader) ([]*TxIn, error) {
@@ -340,7 +272,7 @@ func parseTxIn(r *bufio.Reader) (*TxIn, error) {
 	}
 
 	return &TxIn{
-		PrevTx:      hashToCid(prevTxHash, cid.BitcoinTx),
+		PrevTx:      hashToCid(prevTxHash, cid.DashTx),
 		PrevTxIndex: binary.LittleEndian.Uint32(prevTxIndex),
 		Script:      script,
 		SeqNo:       binary.LittleEndian.Uint32(seqNo),

@@ -1,4 +1,4 @@
-package ipldbtc
+package iplddash
 
 import (
 	"bytes"
@@ -8,26 +8,21 @@ import (
 	"io"
 	"strconv"
 
-	cid "github.com/ipfs/go-cid"
-	node "github.com/ipfs/go-ipld-format"
-	mh "github.com/multiformats/go-multihash"
+	cid "github.com/samli88/go-cid"
+	node "github.com/samli88/go-ipld-format"
+	mh "github.com/samli88/go-multihash"
 )
 
 type Tx struct {
-	Version   uint32     `json:"version"`
-	Inputs    []*TxIn    `json:"inputs"`
-	Outputs   []*TxOut   `json:"outputs"`
-	LockTime  uint32     `json:"locktime"`
-	Witnesses []*Witness `json:"witnesses"`
+	Version  uint32   `json:"version"`
+	Inputs   []*TxIn  `json:"inputs"`
+	Outputs  []*TxOut `json:"outputs"`
+	LockTime uint32   `json:"locktime"`
 }
 
-type Witness struct {
-	Data [][]byte `json:"data"`
-}
-
-func (t *Tx) Cid() *cid.Cid {
+func (t *Tx) Cid() cid.Cid {
 	h, _ := mh.Sum(t.RawData(), mh.DBL_SHA2_256, -1)
-	return cid.NewCidV1(cid.BitcoinTx, h)
+	return cid.NewCidV1(cid.DashTx, h)
 }
 
 func (t *Tx) Links() []*node.Link {
@@ -63,7 +58,7 @@ func (t *Tx) RawData() []byte {
 
 func (t *Tx) Loggable() map[string]interface{} {
 	return map[string]interface{}{
-		"type": "bitcoinTx",
+		"type": "dashTx",
 	}
 }
 
@@ -170,7 +165,7 @@ func (t *Tx) Copy() node.Node {
 }
 
 func (t *Tx) String() string {
-	return "bitcoin transaction"
+	return "dash transaction"
 }
 
 func (t *Tx) Tree(p string, depth int) []string {
@@ -223,26 +218,26 @@ func (t *Tx) treeOutputs(out []string, depth int) []string {
 	return out
 }
 
-func (t *Tx) BTCSha() []byte {
+func (t *Tx) hash() []byte {
 	mh, _ := mh.Sum(t.RawData(), mh.DBL_SHA2_256, -1)
 	return []byte(mh[2:])
 }
 
 func (t *Tx) HexHash() string {
-	return hex.EncodeToString(revString(t.BTCSha()))
+	return hex.EncodeToString(revString(t.hash()))
 }
 
 func txHashToLink(b []byte) *node.Link {
 	mhb, _ := mh.Encode(b, mh.DBL_SHA2_256)
-	c := cid.NewCidV1(cid.BitcoinTx, mhb)
+	c := cid.NewCidV1(cid.DashTx, mhb)
 	return &node.Link{Cid: c}
 }
 
 type TxIn struct {
-	PrevTx      *cid.Cid `json:"txid,omitempty"`
-	PrevTxIndex uint32   `json:"vout"`
-	Script      []byte   `json:"script"`
-	SeqNo       uint32   `json:"sequence"`
+	PrevTx      cid.Cid `json:"txid,omitempty"`
+	PrevTxIndex uint32  `json:"vout"`
+	Script      []byte  `json:"script"`
+	SeqNo       uint32  `json:"sequence"`
 }
 
 func (i *TxIn) WriteTo(w io.Writer) error {
