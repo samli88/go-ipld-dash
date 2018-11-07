@@ -168,7 +168,7 @@ func (b *Block) Tree(p string, depth int) []string {
 // 256 bits of result.
 func (b *Block) hash() []byte {
 	blkmh, _ := mh.Sum(b.header(), mh.X11, 32)
-	return blkmh[2:]
+	return blkmh[3:]
 }
 
 func (b *Block) HexHash() string {
