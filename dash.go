@@ -9,7 +9,21 @@ import (
 	cid "github.com/samli88/go-cid"
 	node "github.com/samli88/go-ipld-format"
 	mh "github.com/samli88/go-multihash"
+
+	x11 "gitlab.com/samli88/go-x11-hash"
 )
+
+func sumX11(data []byte, length int) ([]byte, error) {
+	bytes := make([]byte, 64)
+	h := x11.New()
+	h.Hash(data, bytes)
+	return bytes, nil
+}
+
+// register X11 hash func with multihash for Sum()
+func init() {
+	mh.RegisterHashFunc(mh.X11, sumX11)
+}
 
 type Block struct {
 	rawdata []byte
@@ -32,7 +46,7 @@ type Link struct {
 var _ node.Node = (*Block)(nil)
 
 func (b *Block) Cid() cid.Cid {
-	h, _ := mh.Sum(b.header(), mh.X11, -1)
+	h, _ := mh.Sum(b.header(), mh.X11, 32)
 	return cid.NewCidV1(cid.DashBlock, h)
 }
 
